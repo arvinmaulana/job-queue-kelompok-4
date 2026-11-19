@@ -381,5 +381,3 @@ Selain memperoleh pemahaman mengenai FIFO, Lock, process, dan concurrency, saya 
 Proyek ini memberikan pemahaman secara langsung mengenai bagaimana konsep sistem operasi diterapkan dalam pengelolaan antrean pekerjaan dan pengendalian proses pada Linux.
 
 ---
-
-**Dokumentasi ini disusun sebagai portofolio kontribusi pribadi dalam Proyek Akhir Sistem Operasi Kelompok 4.**
