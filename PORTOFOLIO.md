@@ -375,7 +375,6 @@ Melalui proyek akhir Sistem Operasi ini, saya memperoleh pengalaman dalam memaha
 Fokus utama pekerjaan saya adalah mekanisme antrean FIFO dan Lock pada worker. Berdasarkan hasil pengujian, mekanisme FIFO berhasil menjalankan pekerjaan sesuai urutan masuk ke dalam antrean. Selain itu, mekanisme Lock berhasil mencegah worker kedua berjalan ketika worker pertama masih aktif.
 
 Pengujian juga menunjukkan bahwa sistem dapat memproses pekerjaan dengan hasil yang berbeda, yaitu pekerjaan yang berhasil maupun pekerjaan yang mengalami kegagalan. Informasi hasil pemrosesan tersebut dapat diperiksa melalui script `status.sh` berdasarkan status, PID, dan exit code.
-
 Selain memperoleh pemahaman mengenai FIFO, Lock, process, dan concurrency, saya juga mendapatkan pengalaman menggunakan Ubuntu Server, menjalankan Bash Script, melakukan pengujian sistem, serta memahami penggunaan Git dan GitHub dalam pengembangan proyek secara berkelompok.
 
 Proyek ini memberikan pemahaman secara langsung mengenai bagaimana konsep sistem operasi diterapkan dalam pengelolaan antrean pekerjaan dan pengendalian proses pada Linux.
