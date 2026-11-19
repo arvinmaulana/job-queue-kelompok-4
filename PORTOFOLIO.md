@@ -1,3 +1,4 @@
+
 # PORTOFOLIO
 # PROYEK AKHIR SISTEM OPERASI
 
@@ -24,19 +25,17 @@ Proyek akhir Sistem Operasi ini berjudul **Sistem Antrean Pekerjaan dan Monitori
 
 Proyek ini bertujuan membuat sistem pengelolaan pekerjaan komputasi sederhana menggunakan Bash Script pada sistem operasi Linux.
 
-Sistem menggunakan metode FIFO (First In First Out), yaitu pekerjaan yang masuk lebih dahulu akan diproses lebih dahulu oleh worker. Selain itu, sistem menerapkan mekanisme lock untuk mencegah beberapa worker memproses antrean secara bersamaan.
+Sistem menggunakan metode FIFO (First In First Out), yaitu pekerjaan yang masuk lebih dahulu akan diproses lebih dahulu oleh worker.
 
 Fitur utama sistem meliputi:
-- Pengajuan pekerjaan dengan parameter tervalidasi.
+- Pengajuan pekerjaan menggunakan script submit.
 - Pengelolaan antrean pekerjaan menggunakan metode FIFO.
-- Penguncian worker agar tidak terjadi pemrosesan secara bersamaan.
-- Pemindahan pekerjaan dari antrean ke proses yang sedang berjalan.
-- Pencatatan aktivitas pekerjaan pada log.
-- Pencatatan status pekerjaan dan hasil eksekusi.
-- Pembatasan waktu eksekusi pekerjaan (timeout).
-- Monitoring CPU dan memori.
-- Pembatasan akses menggunakan permission dan group Linux.
-- Pembuatan laporan dan integrasi Docker dengan bind mount read-only.
+- Penguncian worker agar tidak terjadi pemrosesan ganda.
+- Pemrosesan pekerjaan oleh worker.
+- Pencatatan status pekerjaan, PID, dan exit status.
+- Pemisahan pekerjaan berdasarkan status pending, running, done, dan failed.
+- Monitoring hasil pekerjaan melalui script status.
+- Pengaturan hak akses pengguna dan proses menggunakan permission Linux.
 
 Proyek dikerjakan secara berkelompok dengan pembagian tanggung jawab masing-masing anggota menggunakan Git dan GitHub.
 
@@ -46,274 +45,340 @@ Proyek dikerjakan secara berkelompok dengan pembagian tanggung jawab masing-masi
 
 https://github.com/h44dziq/job-queue-kelompok-4
 
-Repository tersebut digunakan sebagai tempat pengembangan utama proyek Sistem Antrean Pekerjaan dan Monitoring Proses Linux.
-
 ### Repository Fork pribadi
 
-Repository Fork pribadi dapat ditambahkan apabila sudah dibuat.
+https://github.com/arvinmaulana/job-queue-kelompok-4
 
-### File utama yang dikerjakan
+### File yang berkaitan dengan pengerjaan
 
-`scripts/worker.sh`
+File utama yang menjadi fokus tanggung jawab saya adalah:
 
-File tersebut menjadi bagian utama pengerjaan karena digunakan untuk menjalankan pekerjaan dari antrean serta menerapkan mekanisme FIFO dan lock.
+https://github.com/h44dziq/job-queue-kelompok-4/tree/feat/arvinmaulana-workerfifo
+
+File pendukung yang digunakan dalam proses pengujian:
+
+https://github.com/h44dziq/job-queue-kelompok-4/blob/feat/arvinmaulana-workerfifo/scripts/submit.sh
+
+File `worker.sh` digunakan untuk mengambil dan menjalankan pekerjaan dari antrean. File `submit.sh` digunakan untuk memasukkan pekerjaan ke dalam antrean, sedangkan `status.sh` digunakan untuk melihat hasil akhir pekerjaan.
+
+Pengembangan dan pengujian dilakukan menggunakan Ubuntu Server dengan Bash Script. Git dan GitHub digunakan untuk mengelola perubahan kode serta menyimpan hasil pengembangan proyek.
 
 ## 4. Tanggung Jawab dan Implementasi
 
-Sebagai Anggota 2, saya bertanggung jawab mengembangkan bagian antrean pekerjaan dan mekanisme lock pada worker.
+Sebagai Anggota 2, saya bertanggung jawab pada bagian pengelolaan antrean pekerjaan dan mekanisme Lock pada worker.
 
-Fokus utama pengerjaan adalah memastikan pekerjaan diproses berdasarkan urutan masuk serta mencegah lebih dari satu worker menjalankan proses antrean secara bersamaan.
+File utama yang berkaitan dengan pengerjaan:
 
-Implementasi yang dilakukan:
+https://github.com/h44dziq/job-queue-kelompok-4/blob/feat/arvinmaulana-workerfifo/scripts/worker.sh
 
-1. Mengembangkan mekanisme pengambilan pekerjaan dari direktori antrean.
-2. Menerapkan metode FIFO (First In First Out) agar pekerjaan diproses berdasarkan urutan masuk.
-3. Memastikan pekerjaan yang sudah diambil masuk ke tahap pemrosesan.
-4. Menerapkan mekanisme lock pada worker.
-5. Mencegah worker kedua berjalan ketika worker pertama masih aktif.
-6. Memberikan informasi apabila terdapat worker lain yang sedang berjalan.
-7. Menggunakan exit status 6 ketika worker tidak dapat berjalan karena lock sedang digunakan.
-8. Melakukan pengujian terhadap urutan pemrosesan pekerjaan.
-9. Melakukan pengujian untuk memastikan mekanisme lock berjalan sesuai fungsinya.
+Implementasi yang menjadi fokus pekerjaan meliputi:
 
-### Konsep FIFO
+1. Menerapkan mekanisme FIFO (First In First Out) untuk memastikan pekerjaan diproses berdasarkan urutan masuk.
+2. Mengatur proses pengambilan pekerjaan oleh worker dari direktori antrean.
+3. Memastikan pekerjaan yang telah masuk ke antrean dapat dijalankan oleh worker.
+4. Menerapkan mekanisme Lock untuk mencegah lebih dari satu worker berjalan secara bersamaan.
+5. Menangani kondisi ketika worker lain masih aktif dengan menolak proses worker berikutnya.
+6. Memastikan worker berhenti ketika antrean sudah kosong.
+7. Melakukan pemeriksaan hasil pekerjaan menggunakan script `status.sh`.
 
-FIFO merupakan metode pengelolaan antrean yang menerapkan prinsip pekerjaan yang pertama masuk akan menjadi pekerjaan pertama yang diproses.
+### A. Mekanisme FIFO
 
-Dalam proyek ini, pekerjaan yang diajukan akan masuk ke direktori `pending`. Worker kemudian mengambil pekerjaan dari antrean untuk diproses sesuai urutan masuk.
+FIFO merupakan metode antrean yang menggunakan prinsip pekerjaan pertama masuk akan diproses pertama.
 
-### Konsep Lock
+Pada sistem ini, pekerjaan yang dikirimkan oleh pengguna akan dimasukkan ke dalam antrean. Worker kemudian mengambil dan menjalankan pekerjaan sesuai urutan antrean.
 
-Lock merupakan mekanisme penguncian yang digunakan untuk memastikan hanya satu worker yang menjalankan pemrosesan antrean pada satu waktu.
+Mekanisme ini digunakan agar pekerjaan dapat diproses secara teratur dan tidak dijalankan secara acak.
 
-Apabila worker pertama masih aktif dan sedang memegang lock, worker kedua tidak diperbolehkan menjalankan proses pemrosesan antrean.
+### B. Mekanisme Lock
 
-Pada pengujian proyek ini, worker kedua akan menampilkan pesan bahwa worker lain sedang berjalan dan menghasilkan exit status 6.
+Lock merupakan mekanisme penguncian yang digunakan untuk mencegah beberapa worker menjalankan antrean secara bersamaan.
+
+Ketika worker pertama sedang aktif, worker kedua tidak diperbolehkan menjalankan proses. Sistem akan menampilkan pesan penolakan apabila terdapat worker lain yang masih berjalan.
+
+Dengan adanya mekanisme ini, proses pengambilan dan pemrosesan pekerjaan dapat dikendalikan agar tidak terjadi pemrosesan ganda.
+
+### C. Monitoring Pekerjaan
+
+Setelah pekerjaan selesai diproses, statusnya dapat diperiksa menggunakan script `status.sh`.
+
+Informasi yang ditampilkan meliputi:
+- ID pekerjaan.
+- Status pekerjaan.
+- Process ID (PID).
+- Exit code.
+
+Informasi tersebut digunakan untuk mengetahui apakah pekerjaan berhasil dijalankan atau mengalami kegagalan.
 
 ## 5. Pengujian Fitur FIFO dan Lock
 
-Pengujian dilakukan dalam dua skenario, yaitu pengujian FIFO dan pengujian mekanisme lock. Setiap pengujian dilakukan menggunakan akun Linux yang telah disediakan dalam proyek.
+Pengujian dilakukan untuk memastikan mekanisme FIFO dapat menjalankan pekerjaan sesuai urutan masuk serta mekanisme Lock dapat mencegah dua worker berjalan secara bersamaan.
 
-### A. Pengujian Positif — FIFO (First In First Out)
+### A. Pengujian Positif — Mekanisme FIFO
 
 **Tujuan:**
 
-Memastikan pekerjaan diproses sesuai dengan urutan ketika pekerjaan tersebut dimasukkan ke dalam antrean.
+Memastikan pekerjaan dijalankan berdasarkan urutan masuk ke dalam antrean.
 
-**Langkah 1. Membersihkan antrean**
+Pengujian dilakukan dengan memasukkan dua pekerjaan, yaitu `job_ringan` dengan parameter 1 dan `job_gagal` dengan parameter 2.
 
-```bash
-sudo rm -f /var/lib/job-queue/{pending,running,done,failed}/*
-```
-
-**Langkah 2. Mengajukan pekerjaan pertama**
+Perintah pengajuan pekerjaan pertama:
 
 ```bash
 sudo -u pengguna1 /opt/job-queue/scripts/submit.sh job_ringan 1
 ```
 
-**Langkah 3. Mengajukan pekerjaan kedua**
+Hasil:
+
+```text
+Job diterima: 20261118155309173118149_job_ringan (parameter 1)
+```
+
+Perintah pengajuan pekerjaan kedua:
 
 ```bash
 sudo -u pengguna1 /opt/job-queue/scripts/submit.sh job_gagal 2
 ```
 
-**Langkah 4. Menjalankan worker**
+Hasil:
+
+```text
+Job diterima: 20261118155324171744530_job_gagal (parameter 2)
+```
+
+Setelah kedua pekerjaan masuk ke antrean, worker dijalankan menggunakan akun `operator1`.
 
 ```bash
 sudo -u operator1 /opt/job-queue/scripts/worker.sh
 ```
 
-**Langkah 5. Memeriksa urutan pekerjaan melalui log**
+Hasil:
 
-```bash
-tail /var/lib/job-queue/queue.log
+```text
+Menjalankan 20261118155309173118149_job_ringan
+Menjalankan 20261118155324171744530_job_gagal
+Antrean kosong, worker berhenti.
 ```
 
-**Hasil yang diharapkan:**
+Berdasarkan hasil pengujian, `job_ringan` dijalankan terlebih dahulu, kemudian dilanjutkan dengan `job_gagal`.
 
-- `job_ringan` diproses terlebih dahulu karena dimasukkan ke antrean pertama.
-- `job_gagal` diproses setelah `job_ringan`.
-- Urutan pemrosesan sesuai dengan urutan pengajuan pekerjaan.
+**Kesimpulan:** Mekanisme FIFO berhasil menjalankan pekerjaan sesuai urutan masuk ke dalam antrean. Setelah seluruh pekerjaan selesai diproses, worker berhenti karena antrean sudah kosong.
 
-**Kesimpulan:**
-
-Berdasarkan pengujian, mekanisme FIFO digunakan untuk memastikan pekerjaan diproses berdasarkan urutan masuk ke dalam antrean. Pekerjaan yang diajukan lebih dahulu akan diproses lebih dahulu oleh worker.
-
-### B. Pengujian Negatif — Lock pada Worker
+### B. Pengujian Negatif — Pencegahan Worker Ganda (Lock)
 
 **Tujuan:**
 
-Memastikan sistem dapat mencegah worker kedua berjalan ketika worker pertama masih aktif memproses pekerjaan.
+Memastikan sistem dapat menolak worker kedua ketika worker pertama masih aktif menjalankan pekerjaan.
 
-**Langkah 1. Membersihkan antrean**
+Pengujian dilakukan dengan memasukkan pekerjaan `job_lama` menggunakan akun `pengguna1`.
 
-```bash
-sudo rm -f /var/lib/job-queue/{pending,running,done,failed}/*
-```
-
-**Langkah 2. Mengajukan pekerjaan dengan durasi lebih lama**
+Perintah pengajuan pekerjaan:
 
 ```bash
 sudo -u pengguna1 /opt/job-queue/scripts/submit.sh job_lama 5
 ```
 
-**Langkah 3. Menjalankan worker pertama di background**
-
-```bash
-sudo -u operator1 /opt/job-queue/scripts/worker.sh &
-```
-
-Worker pertama dijalankan di background agar terminal tetap dapat digunakan untuk menjalankan perintah berikutnya.
-
-**Langkah 4. Menjalankan worker kedua**
-
-```bash
-sudo -u operator1 /opt/job-queue/scripts/worker.sh; echo "exit=$?"
-```
-
-**Hasil yang diharapkan:**
+Hasil:
 
 ```text
-Worker lain sedang berjalan
-exit=6
+Job diterima: 20261118155353828052330_job_lama (parameter 5)
 ```
 
-**Analisis hasil:**
+Selanjutnya, worker pertama dijalankan di background dan worker kedua langsung dijalankan.
 
-- Worker pertama berhasil berjalan dan memproses pekerjaan.
-- Worker pertama masih memegang lock selama proses berlangsung.
-- Worker kedua mencoba menjalankan worker ketika lock masih digunakan.
-- Sistem menolak proses worker kedua.
-- Worker kedua menghasilkan exit status 6.
-
-**Langkah 5. Menunggu worker pertama selesai**
+Perintah pengujian:
 
 ```bash
-wait
+sudo -u operator1 /opt/job-queue/scripts/worker.sh & sudo -u operator1 /opt/job-queue/scripts/worker.sh
 ```
 
-**Kesimpulan:**
+Hasil:
 
-Pengujian menunjukkan bahwa mekanisme lock berhasil mencegah dua worker berjalan secara bersamaan. Ketika worker pertama masih aktif, worker kedua mendapatkan penolakan sehingga tidak terjadi pemrosesan antrean secara bersamaan.
+```text
+[1] 4028
+Ditolak: worker lain sedang berjalan
+```
+
+Setelah worker kedua ditolak, worker pertama tetap melanjutkan proses pekerjaan.
+
+```text
+Menjalankan 20261118155353828052330_job_lama
+Antrean kosong, worker berhenti.
+```
+
+Berdasarkan hasil pengujian, worker kedua tidak dapat berjalan karena worker pertama masih aktif. Worker pertama berhasil menyelesaikan pekerjaan `job_lama` dan berhenti setelah antrean kosong.
+
+**Kesimpulan:** Mekanisme Lock berhasil mencegah dua worker berjalan secara bersamaan. Sistem dapat mendeteksi worker yang sedang aktif dan menolak eksekusi worker berikutnya.
+
+### C. Pengujian Monitoring Status Pekerjaan
+
+**Tujuan:**
+
+Memastikan sistem dapat menampilkan hasil akhir pekerjaan yang telah diproses oleh worker.
+
+Pemeriksaan dilakukan menggunakan script `status.sh`.
+
+Perintah:
+
+```bash
+sudo -u pengguna1 /opt/job-queue/scripts/status.sh
+```
+
+Hasil:
+
+```text
+ID_JOB                               STATUS     PID      EXIT
+20261118155309173118149_job_ringan   BERHASIL   3966     0
+20261118155353828052330_job_lama    BERHASIL   4062     0
+20261118155324171744530_job_gagal   GAGAL      3997     2
+```
+
+Berdasarkan hasil pemeriksaan, diperoleh informasi sebagai berikut:
+
+**1. job_ringan**
+- PID: 3966
+- Status: BERHASIL
+- Exit code: 0
+
+**2. job_lama**
+- PID: 4062
+- Status: BERHASIL
+- Exit code: 0
+
+**3. job_gagal**
+- PID: 3997
+- Status: GAGAL
+- Exit code: 2
+
+Hasil tersebut menunjukkan bahwa sistem dapat membedakan pekerjaan yang berhasil dan pekerjaan yang mengalami kegagalan berdasarkan exit code masing-masing proses.
+
+**Kesimpulan:** Script `status.sh` berhasil menampilkan status akhir pekerjaan beserta PID dan exit code sehingga hasil pemrosesan dapat dipantau.
 
 ## 6. Ringkasan Hasil Pengujian
 
-| No. | Skenario | Hasil yang Diharapkan |
-|---|---|---|
-| 1 | FIFO dengan job_ringan dan job_gagal | job_ringan diproses terlebih dahulu |
-| 2 | Worker pertama berjalan di background | Worker pertama berhasil berjalan |
-| 3 | Worker kedua dijalankan ketika lock digunakan | Worker kedua ditolak |
-| 4 | Pemeriksaan exit status worker kedua | Exit status 6 |
-| 5 | Worker pertama menyelesaikan pekerjaan | Worker pertama selesai dan lock dilepaskan |
+Berdasarkan pengujian yang telah dilakukan, diperoleh hasil sebagai berikut:
 
-Berdasarkan skenario pengujian tersebut, fitur FIFO dan lock digunakan untuk mengatur urutan pemrosesan pekerjaan serta mencegah terjadinya eksekusi worker secara bersamaan.
+| No. | Skenario Pengujian | Hasil | Keterangan |
+|---|---|---|---|
+| 1 | Pengiriman job_ringan | Berhasil | Pekerjaan berhasil masuk ke antrean |
+| 2 | Pengiriman job_gagal | Berhasil | Pekerjaan berhasil masuk ke antrean |
+| 3 | Pengujian FIFO | Berhasil | job_ringan dijalankan sebelum job_gagal |
+| 4 | Pengujian Lock | Berhasil | Worker kedua ditolak ketika worker pertama masih aktif |
+| 5 | Eksekusi job_lama | Berhasil | Pekerjaan selesai dijalankan oleh worker pertama |
+| 6 | Monitoring pekerjaan | Berhasil | Status, PID, dan exit code berhasil ditampilkan |
+| 7 | Penanganan pekerjaan gagal | Sesuai skenario | job_gagal memiliki status GAGAL dan exit code 2 |
+
+Secara keseluruhan, pengujian menunjukkan bahwa mekanisme FIFO dan Lock berjalan sesuai skenario yang telah dilakukan. Sistem juga mampu menampilkan status akhir pekerjaan melalui fitur monitoring.
 
 ## 7. Analisis Teori Sistem Operasi
 
-### A. FIFO (First In First Out)
+### A. First In First Out (FIFO)
 
-FIFO merupakan metode pengelolaan antrean yang menggunakan prinsip pekerjaan yang masuk pertama akan diproses pertama.
+FIFO merupakan metode pengelolaan antrean yang menggunakan prinsip pekerjaan pertama masuk akan diproses pertama.
 
-Dalam proyek ini, FIFO diterapkan untuk mengatur urutan pekerjaan yang berada di dalam direktori `pending`.
+Dalam proyek ini, FIFO diterapkan untuk mengatur urutan pekerjaan yang dijalankan oleh worker. Hasil pengujian menunjukkan bahwa `job_ringan` diproses sebelum `job_gagal` karena pekerjaan tersebut dimasukkan lebih dahulu ke dalam antrean.
 
 ### B. Process
 
-Process merupakan program yang sedang dijalankan oleh sistem operasi.
+Process merupakan program yang sedang dieksekusi oleh sistem operasi.
 
-Dalam proyek ini, worker bertindak sebagai proses yang bertugas mengambil dan menjalankan pekerjaan dari antrean.
+Dalam proyek ini, setiap pekerjaan yang dijalankan oleh worker menjadi proses yang memiliki PID. PID digunakan untuk mengidentifikasi proses yang sedang atau telah dijalankan.
 
-### C. Lock
+### C. Process Synchronization
 
-Lock merupakan mekanisme penguncian yang digunakan untuk membatasi akses terhadap suatu sumber daya agar tidak digunakan secara bersamaan oleh beberapa proses yang tidak diizinkan.
+Process Synchronization merupakan mekanisme untuk mengatur jalannya beberapa proses agar tidak menimbulkan konflik ketika mengakses sumber daya bersama.
 
-Dalam proyek ini, lock digunakan untuk membatasi jumlah worker yang dapat memproses antrean pada satu waktu.
+Dalam proyek ini, mekanisme Lock digunakan untuk membatasi worker yang aktif agar tidak ada worker lain yang menjalankan antrean pada waktu bersamaan.
 
-### D. Background Process
+### D. Lock
 
-Background process merupakan proses yang dijalankan di latar belakang sehingga terminal tetap dapat digunakan untuk menjalankan perintah lainnya.
+Lock merupakan mekanisme penguncian yang digunakan untuk mengendalikan akses terhadap suatu sumber daya.
 
-Dalam pengujian lock, worker pertama dijalankan menggunakan tanda `&` agar worker kedua dapat langsung diuji ketika worker pertama masih aktif.
+Pada proyek ini, Lock diterapkan untuk memastikan hanya satu worker yang dapat menjalankan proses antrean pada satu waktu. Pengujian menunjukkan worker kedua ditolak ketika worker pertama masih aktif.
 
 ### E. Concurrency
 
-Concurrency merupakan kondisi ketika beberapa proses memiliki aktivitas yang berlangsung dalam periode waktu yang sama.
+Concurrency merupakan kondisi ketika beberapa proses dapat berlangsung dalam periode waktu yang saling tumpang tindih.
 
-Dalam proyek ini, mekanisme lock digunakan untuk mengendalikan akses worker terhadap antrean agar tidak terjadi pemrosesan secara bersamaan.
+Dalam pengujian ini, dua perintah worker dijalankan secara berdekatan. Mekanisme Lock memastikan bahwa hanya worker pertama yang dapat melanjutkan proses, sedangkan worker kedua ditolak.
 
 ### F. Exit Status
 
-Exit status merupakan nilai yang menunjukkan hasil akhir eksekusi suatu perintah atau proses.
+Exit status merupakan nilai yang menunjukkan hasil akhir eksekusi suatu proses.
 
-Dalam pengujian lock:
-- `0` menunjukkan perintah berhasil dijalankan.
-- `6` menunjukkan worker ditolak karena terdapat worker lain yang sedang berjalan.
+Dalam proyek ini:
+- Exit code 0 menunjukkan pekerjaan berhasil dijalankan.
+- Exit code 2 menunjukkan pekerjaan mengalami kegagalan.
+
+Nilai tersebut digunakan oleh sistem untuk membedakan hasil akhir setiap pekerjaan.
 
 ## 8. Aktivitas Pengerjaan Proyek
 
-Selama pengerjaan proyek, saya melakukan beberapa aktivitas yang berkaitan dengan implementasi FIFO dan lock.
+Selama pengerjaan proyek, saya melakukan beberapa aktivitas yang berkaitan dengan pengembangan dan pengujian sistem antrean.
 
 ### A. Persiapan Lingkungan Linux
 
-- Menggunakan Ubuntu Server melalui VirtualBox.
-- Membuka terminal Ubuntu untuk menjalankan perintah Linux.
-- Memeriksa struktur direktori proyek.
-- Memeriksa direktori antrean pekerjaan.
-- Menggunakan akun Linux sesuai pembagian hak akses.
-- Menjalankan script pengajuan pekerjaan dan worker.
-- Memeriksa hasil eksekusi melalui log.
+- Menggunakan Ubuntu Server melalui lingkungan virtual.
+- Menjalankan perintah Linux melalui terminal.
+- Memahami struktur direktori sistem antrean.
+- Menggunakan akun `pengguna1` untuk mengirimkan pekerjaan.
+- Menggunakan akun `operator1` untuk menjalankan worker.
 
-### B. Implementasi dan Pengujian
+### B. Pengembangan dan Pemahaman Sistem
 
-Aktivitas yang dilakukan meliputi:
+- Mempelajari alur kerja sistem antrean pekerjaan.
+- Memahami mekanisme FIFO pada proses worker.
+- Mempelajari mekanisme Lock untuk mencegah worker ganda.
+- Memahami hubungan antara script `submit.sh`, `worker.sh`, dan `status.sh`.
+- Mempelajari proses pemindahan dan pengelolaan pekerjaan dalam antrean.
 
-1. Memahami alur pengajuan pekerjaan ke dalam antrean.
-2. Memeriksa mekanisme pemrosesan pekerjaan oleh worker.
-3. Menguji urutan pekerjaan menggunakan metode FIFO.
-4. Menguji worker pertama dalam kondisi background.
-5. Menjalankan worker kedua ketika worker pertama masih aktif.
-6. Memeriksa pesan penolakan worker kedua.
-7. Memeriksa exit status hasil pengujian.
-8. Memastikan worker pertama dapat menyelesaikan pekerjaan.
+### C. Pengujian Sistem
 
-### C. Pengelolaan Git dan GitHub
+- Mengirimkan pekerjaan `job_ringan` dengan parameter 1.
+- Mengirimkan pekerjaan `job_gagal` dengan parameter 2.
+- Menjalankan worker untuk menguji urutan pemrosesan FIFO.
+- Mengirimkan pekerjaan `job_lama` dengan parameter 5.
+- Menjalankan dua worker secara berdekatan untuk menguji mekanisme Lock.
+- Memeriksa hasil akhir pekerjaan menggunakan script `status.sh`.
+- Mengamati PID, status, dan exit code setiap pekerjaan.
 
-Aktivitas pengelolaan repository yang berkaitan dengan pengerjaan proyek meliputi:
+### D. Pengelolaan Git dan GitHub
 
-- Menggunakan repository GitHub kelompok.
-- Memeriksa struktur file proyek.
-- Mengikuti perkembangan perubahan kode kelompok.
-- Menggunakan Git untuk mengelola perubahan proyek.
-- Mendokumentasikan hasil pengerjaan dan pengujian.
+- Menggunakan repository proyek kelompok.
+- Memahami penggunaan Git untuk pengelolaan kode proyek.
+- Menggunakan GitHub sebagai tempat penyimpanan repository.
+- Mendokumentasikan kontribusi pribadi melalui repository Fork.
 
 ## 9. Bukti Dokumentasi
 
-Bukti dokumentasi yang perlu dilampirkan pada repository portofolio:
+Bukti pengembangan dan pengujian bagian FIFO dan Lock dapat ditelusuri melalui hasil praktik serta repository proyek.
 
-| No. | Bukti | Keterangan |
+Dokumentasi yang berkaitan dengan kontribusi saya meliputi:
+
+| No. | Dokumentasi | Keterangan |
 |---|---|---|
-| 1 | Screenshot struktur direktori proyek | Lingkungan pengerjaan Ubuntu |
-| 2 | Screenshot kode `worker.sh` | Implementasi FIFO dan lock |
-| 3 | Screenshot pengajuan job pertama | Pengujian FIFO |
-| 4 | Screenshot pengajuan job kedua | Pengujian urutan antrean |
-| 5 | Screenshot worker dijalankan | Proses pemrosesan pekerjaan |
-| 6 | Screenshot `queue.log` | Bukti urutan pemrosesan FIFO |
-| 7 | Screenshot worker pertama background | Pengujian lock |
-| 8 | Screenshot penolakan worker kedua | Bukti mekanisme lock |
-| 9 | Screenshot exit status 6 | Hasil pengujian negatif |
-| 10 | Screenshot worker pertama selesai | Bukti penyelesaian proses |
+| 1 | Repository utama kelompok | Sumber kode sistem antrean pekerjaan |
+| 2 | File `worker.sh` | Implementasi proses worker, FIFO, dan Lock |
+| 3 | File `submit.sh` | Proses pengiriman pekerjaan ke antrean |
+| 4 | File `status.sh` | Pemeriksaan status pekerjaan |
+| 5 | Pengujian FIFO | Hasil pemrosesan job_ringan dan job_gagal |
+| 6 | Pengujian Lock | Hasil penolakan worker kedua ketika worker pertama aktif |
+| 7 | Hasil monitoring | Informasi status, PID, dan exit code pekerjaan |
+
+Repository utama:
+
+https://github.com/h44dziq/job-queue-kelompok-4
 
 ## 10. Kesimpulan dan Pembelajaran
 
-Melalui proyek akhir Sistem Operasi ini, saya memperoleh pengalaman dalam memahami dan mengimplementasikan pengelolaan antrean pekerjaan menggunakan Bash Script pada sistem operasi Linux.
+Melalui proyek akhir Sistem Operasi ini, saya memperoleh pengalaman dalam memahami dan menerapkan konsep pengelolaan proses Linux menggunakan Bash Script.
 
-Fokus utama pekerjaan saya adalah penerapan metode FIFO dan mekanisme lock pada worker. FIFO digunakan untuk memastikan pekerjaan diproses berdasarkan urutan masuk, sedangkan lock digunakan untuk mencegah beberapa worker menjalankan pemrosesan antrean secara bersamaan.
+Fokus utama pekerjaan saya adalah mekanisme antrean FIFO dan Lock pada worker. Berdasarkan hasil pengujian, mekanisme FIFO berhasil menjalankan pekerjaan sesuai urutan masuk ke dalam antrean. Selain itu, mekanisme Lock berhasil mencegah worker kedua berjalan ketika worker pertama masih aktif.
 
-Melalui pengujian positif dan negatif, saya dapat memahami bagaimana worker mengambil pekerjaan dari antrean serta bagaimana sistem menangani kondisi ketika terdapat worker lain yang masih aktif.
+Pengujian juga menunjukkan bahwa sistem dapat memproses pekerjaan dengan hasil yang berbeda, yaitu pekerjaan yang berhasil maupun pekerjaan yang mengalami kegagalan. Informasi hasil pemrosesan tersebut dapat diperiksa melalui script `status.sh` berdasarkan status, PID, dan exit code.
 
-Selain itu, proyek ini memberikan pengalaman dalam menggunakan terminal Linux, menjalankan proses di background, memeriksa log, serta memahami konsep process, concurrency, dan locking dalam sistem operasi.
+Selain memperoleh pemahaman mengenai FIFO, Lock, process, dan concurrency, saya juga mendapatkan pengalaman menggunakan Ubuntu Server, menjalankan Bash Script, melakukan pengujian sistem, serta memahami penggunaan Git dan GitHub dalam pengembangan proyek secara berkelompok.
 
-Proyek ini membantu saya memahami penerapan teori sistem operasi secara langsung melalui pengembangan sistem antrean pekerjaan yang menggunakan Bash Script.
+Proyek ini memberikan pemahaman secara langsung mengenai bagaimana konsep sistem operasi diterapkan dalam pengelolaan antrean pekerjaan dan pengendalian proses pada Linux.
 
 ---
 
